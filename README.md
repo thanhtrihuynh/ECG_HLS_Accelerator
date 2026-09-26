@@ -1,145 +1,86 @@
-# Áp dụng HLS tutorial cho ECG dashboard
+# ECG FPGA HLS Dashboard
 
-## 1. Copy file HLS sang PYNQ
+## Project Overview
 
-Trên Windows PowerShell, vào thư mục dashboard:
+This project implements an **ECG classification dashboard integrated with FPGA acceleration on the PYNQ-Z2 board**.
 
-```powershell
-cd "D:\HCMUTE\HK II nam 3\RTOS\dashboard\ecg_ai_dashboard_pynq_z2"
-scp .\fpga\hls\ecg_accel_hls.bit .\fpga\hls\ecg_accel_hls.hwh .\fpga\hls\pynq_ecg_hls_api_server.py xilinx@192.168.2.99:/home/xilinx/fpga/rtos/
-```
+The system includes two main components:
 
-Mật khẩu:
+- A **Windows-based ECG dashboard**
+- An **HLS-based inference server running on the PYNQ-Z2**
 
-```text
-xilinx
-```
+The FPGA accelerator is developed using **High-Level Synthesis (HLS)** and deployed to the PYNQ-Z2 using the generated `.bit` and `.hwh` files.
 
-## 2. Trên PYNQ tạo thư mục nếu chưa có
+## System Architecture
 
-```bash
-mkdir -p /home/xilinx/fpga/rtos
-cd /home/xilinx/fpga/rtos
-ls -lh
-```
+The Windows computer runs the ECG dashboard using **FastAPI**. The dashboard allows the user to load ECG data, select an inference backend, check the FPGA connection, and run ECG predictions.
 
-Cần có:
+The PYNQ-Z2 runs a Python API server that loads the FPGA overlay and provides ECG inference services through a REST API.
 
-```text
-ecg_accel_hls.bit
-ecg_accel_hls.hwh
-pynq_ecg_hls_api_server.py
-```
+The Windows computer and the PYNQ-Z2 communicate through an Ethernet connection using HTTP requests.
 
-## 3. Đặt IP theo tutorial nếu ping chưa được
+## FPGA HLS Inference
 
-Trên PYNQ:
-
-```bash
-sudo ip link set eth0 up
-sudo ip addr flush dev eth0
-sudo ip addr add 192.168.2.99/24 dev eth0
-ip a
-```
-
-Trên Windows, card Ethernet nên là:
-
-```text
-IPv4 Address: 192.168.2.1
-Subnet Mask: 255.255.255.0
-```
-
-Test từ Windows:
-
-```powershell
-ping 192.168.2.99
-```
-
-## 4. Chạy PYNQ HLS API server
-
-Trên PYNQ:
-
-```bash
-cd /home/xilinx/fpga/rtos
-rm -rf __pycache__
-sudo -E python3 pynq_ecg_hls_api_server.py
-```
-
-Để nguyên cửa sổ này, không tắt.
-
-## 5. Test API từ Windows
-
-Mở PowerShell khác:
-
-```powershell
-curl.exe http://192.168.2.99:8000/health
-```
-
-Nếu đúng sẽ có:
-
-```json
-{"ok": true, "overlay_loaded": true, "ip_name": "ecg_fpga_top_0"}
-```
-
-## 6. Chạy dashboard trên Windows
-
-```powershell
-
-Mở PowerShell và chạy:
-cd "D:\HCMUTE\HK II nam 3\RTOS\dashboard\ecg_ai_dashboard_pynq_z2 "
-
-Tạo virtual environment:
-py -3.12 -m venv .venv
-
-Kích hoạt .venv:
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
-
-Cài lại thư viện, ép NumPy bản ổn định:
-python -m pip install --upgrade pip setuptools wheel
-python -m pip cache purge
-python -m pip install numpy==1.26.4
-python -m pip install fastapi uvicorn pandas requests python-multipart wfdb
-
-Cài thư viện dashboard:
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m pip install -r requirements-keras.txt
-
-Trước khi chạy dashboard, set địa chỉ PYNQ API:
-$env:PYNQ_HLS_URL="http://192.168.2.99:8000"
-
-Chạy dashboard trên Windows:
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8080
-
-```
-
-Mở trình duyệt:
-
-```text
-http://127.0.0.1:8080
-```
-
-Trong dashboard bấm `Check FPGA`. Nếu đúng sẽ hiện remote API sẵn sàng.
-
-## 7. Chạy predict
-
-Chọn backend:
+For FPGA inference, the dashboard provides the following backend:
 
 ```text
 FPGA HLS Q4.12
 ```
 
-Sau đó bấm:
+When the user starts a prediction, the dashboard sends ECG beat samples to the PYNQ-Z2 through the REST API.
 
-```text
-Predict beat
-```
+The Python server on the PYNQ-Z2 receives the input data and transfers it to the HLS accelerator implemented on the FPGA.
 
-hoặc:
+The FPGA accelerator processes the ECG samples using **Q4.12 fixed-point arithmetic** and produces the classification result.
 
-```text
-Predict multi-backend
-```
+The result is then returned to the Windows dashboard and displayed to the user.
 
-Kết quả FPGA HLS được PYNQ-Z2 suy luận và trả về dashboard Windows.
+## System Workflow
+
+The system operates in the following sequence:
+
+1. ECG data is loaded into the Windows dashboard.
+2. The user selects an inference backend.
+3. The dashboard sends the selected ECG beat to the PYNQ-Z2.
+4. The PYNQ-Z2 API server receives the ECG samples.
+5. The FPGA HLS accelerator performs the inference.
+6. The classification result is returned to the API server.
+7. The API server sends the result back to the Windows dashboard.
+8. The dashboard displays the prediction result.
+
+## Communication
+
+The Windows computer and the PYNQ-Z2 are connected through Ethernet.
+
+The dashboard communicates with the PYNQ-Z2 using a REST API. The PYNQ-Z2 acts as the hardware inference server, while the Windows computer is responsible for the user interface, data handling, and result visualization.
+
+## Main Features
+
+- ECG beat classification
+- FPGA-accelerated inference
+- Remote inference through REST API
+- FPGA connection checking
+- Multiple inference backend support
+- Multi-backend prediction comparison
+- Windows-based ECG dashboard
+- PYNQ-Z2 hardware acceleration
+
+## Technologies Used
+
+- Python
+- FastAPI
+- Uvicorn
+- PYNQ-Z2
+- FPGA
+- High-Level Synthesis (HLS)
+- REST API
+- Ethernet
+- Q4.12 fixed-point arithmetic
+
+## Summary
+
+This project integrates a **Windows-based ECG dashboard** with an **HLS-based FPGA accelerator running on the PYNQ-Z2**.
+
+The Windows dashboard handles ECG data, user interaction, and result visualization, while the PYNQ-Z2 performs hardware-accelerated ECG inference.
+
+Communication between the two systems is implemented using a REST API over Ethernet.
